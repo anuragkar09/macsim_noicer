@@ -237,17 +237,17 @@ void cache_c::update_cache_on_access(Addr line_addr, int set, int appl_id) {
     {
       if(*m_simBase->m_knobs->KNOB_LLC_REMAPPING_INTERVAL != -1 && m_name.find("llc")!=std::string::npos)
       {
-        std::cout <<"[Log] Access counter is "<<m_access_counter <<endl;
-        std::cout <<"[Log] Cache Type is "<<m_cache_type <<endl;
-        std::cout <<"[Log] Cache Name is "<< m_name <<endl;
+        //std::cout <<"[Log] Access counter is "<<m_access_counter <<endl;
+        //std::cout <<"[Log] Cache Type is "<<m_cache_type <<endl;
+        //std::cout <<"[Log] Cache Name is "<< m_name <<endl;
 
         //if(m_name.find("llc")!=std::string::npos) getchar();
         if(m_access_counter % *m_simBase->m_knobs->KNOB_LLC_REMAPPING_INTERVAL ==0)
         {
-          cout<< "[Log] Invalidate and reset counter "<<endl;
+          //cout<< "[Log] Invalidate and reset counter "<<endl;
           //m_access_counter =0;
           invalidate_cache();
-          getchar();
+          //getchar();
         }
       }
     }
@@ -259,8 +259,8 @@ void cache_c::update_cache_on_access(Addr line_addr, int set, int appl_id) {
         {
           invalidate_cache_set(m_set_remapped);
           m_set_remapped = (m_set_remapped+1) % m_num_sets; //loop around to 0 once reached end
-          cout<<"[Log] Next for remapping: "<< m_set_remapped<<endl;
-          getchar();
+          //cout<<"[Log] Next for remapping: "<< m_set_remapped<<endl;
+          //getchar();
         }
       }
     }
