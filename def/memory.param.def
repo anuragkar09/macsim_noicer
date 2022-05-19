@@ -126,8 +126,8 @@ param<LLC_LINE_SIZE,         llc_line_size,         int, 64>
 param<LLC_NUM_BANK,          llc_num_bank,          int, 16>
 param<LLC_LATENCY,           llc_latency,           int, 25>
 param<LLC_REMAPPING_MODE,    llc_remapping_mode,    string, none>
-param<LLC_REMAPPING_INTERVAL,llc_remapping_interval,         int, -1>
-
+param<LLC_REMAPPING_INTERVAL,llc_remapping_interval,int, -1>
+param<LLC_FLUSH_PENALTY,     llc_flush_penalty,     int,  3>
 
 param<DCACHE_INFINITE_PORT, dcache_infinite_port, bool, false>
 

@@ -86,6 +86,7 @@ cache_c::cache_c(string name, int num_set, int assoc, int line_size,
   m_interleave_factor = interleave_factor;
   m_access_counter = 0;
   m_set_remapped =0;
+  m_last_flush_time=0;
   // Setting some fields to make indexing quick
   m_set_bits = log2_int(num_set);
   m_shift_bits = log2_int(line_size); /* use for shift amt. */
@@ -229,7 +230,7 @@ void *cache_c::access_cache(Addr addr, Addr *line_addr, bool update_repl,
 void cache_c::update_cache_on_access(Addr line_addr, int set, int appl_id) {
   //This is where code will be put in 
   //std::cout <<"[Log] Knob value is "<< *m_simBase->m_knobs->KNOB_LLC_REMAPPING << endl;
-  m_access_counter++;
+  //m_access_counter++;
   
   if( m_simBase->m_knobs->KNOB_LLC_REMAPPING_MODE->getValue() != "none")
   {
@@ -247,6 +248,7 @@ void cache_c::update_cache_on_access(Addr line_addr, int set, int appl_id) {
           //cout<< "[Log] Invalidate and reset counter "<<endl;
           //m_access_counter =0;
           invalidate_cache();
+          m_last_flush_time = CYCLE;
           //getchar();
         }
       }
@@ -257,10 +259,13 @@ void cache_c::update_cache_on_access(Addr line_addr, int set, int appl_id) {
       {
         if(m_access_counter % *m_simBase->m_knobs->KNOB_LLC_REMAPPING_INTERVAL ==0)
         {
+          /*
           invalidate_cache_set(m_set_remapped);
+          m_last_flush_time = CYCLE;
           m_set_remapped = (m_set_remapped+1) % m_num_sets; //loop around to 0 once reached end
           //cout<<"[Log] Next for remapping: "<< m_set_remapped<<endl;
           //getchar();
+          */
         }
       }
     }
@@ -492,8 +497,21 @@ void cache_c::invalidate_cache(void) {
   for (int ii = 0; ii < m_num_sets; ++ii) {
     for (int jj = 0; jj < m_assoc; ++jj) {
       cache_entry_c *line = &(m_set[ii]->m_entry[jj]);
+      if(line->m_dirty == true)
+      {
+        cout << "Line is dirty in cache"<<endl;
+        //getchar();
+      }
+      //line->m_dirty = true; //just to  test if it shows up
       line->m_valid = false;
       line->m_tag = 0;
+      
+      
+      //if(line->m_dirty) // if the line is dirty
+      //{
+      //  mem_req_s* wb = m_simBase->m_memory->new_wb_req(line->m_base, m_line_size,false,line->m_data ,m_level)
+        //mem_req_s* wb = m_simBase->m_memory->new_wb_req(victim_line_addr, m_line_size, m_acc_sim, data, m_level);
+      //}
       memset(line->m_data, 0, m_data_size);
     }
   }

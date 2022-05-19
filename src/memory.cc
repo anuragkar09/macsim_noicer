@@ -380,8 +380,96 @@ bool dcu_c::get_read_port(int bank_id) {
 // access the cache.
 dcache_data_s* dcu_c::access_cache(Addr addr, Addr* line_addr, bool update,
                                    int appl_id) {
-  return (dcache_data_s*)m_cache->access_cache(addr, line_addr, update,
+
+  dcache_data_s* return_value;
+  return_value= (dcache_data_s*)m_cache->access_cache(addr, line_addr, update,
                                                appl_id);
+
+  //cout<< "I was here"<<endl;getchar();
+  if(m_level == MEM_LLC)
+  {
+    
+
+    if( m_simBase->m_knobs->KNOB_LLC_REMAPPING_MODE->getValue() != "none")
+    {
+      if( m_simBase->m_knobs->KNOB_LLC_REMAPPING_MODE->getValue() == "bulk" && *m_simBase->m_knobs->KNOB_LLC_REMAPPING_INTERVAL != -1) //bulk remapping mode
+      {
+        if(CYCLE - m_cache->m_last_flush_time <= *m_simBase->m_knobs->KNOB_LLC_FLUSH_PENALTY)//it is within a certain time window
+        {
+            return(NULL);
+        }
+        if(m_cache->m_access_counter% *m_simBase->m_knobs->KNOB_LLC_REMAPPING_INTERVAL == 0)
+        {
+          //cout << "Remapping Internal Hit"<<endl;
+          //getchar();
+          for (int ii = 0; ii < m_num_set; ++ii) {
+            for (int jj = 0; jj < m_assoc; ++jj) {
+              //cout<< "Inside inner loop"<<endl;
+              cache_entry_c *line = &(m_cache->m_set[ii]->m_entry[jj]);
+              if(line->m_valid == false)
+              {
+                //cout<<"Line is already invalidated"<<endl;
+                //getchar();
+              }
+              if(line->m_dirty == true)
+              {
+                //cout<<"Line is dirty"<<endl;
+                //getchar();
+                mem_req_s* wb = m_simBase->m_memory->new_wb_req(line->m_base,m_line_size,m_acc_sim,(dcache_data_s*)line->m_data,m_level);
+                wb->m_rdy_cycle = m_cycle + 1;
+                 if (!m_wb_queue->push(wb)) ASSERT(0);
+              }
+            }
+
+          }
+        }
+      }
+      else if ( m_simBase->m_knobs->KNOB_LLC_REMAPPING_MODE->getValue() == "gradual" && *m_simBase->m_knobs->KNOB_LLC_REMAPPING_INTERVAL != -1)//gradual remapping mode
+      {
+        m_cache->m_access_counter++;
+        if(m_cache->m_access_counter% *m_simBase->m_knobs->KNOB_LLC_REMAPPING_INTERVAL == 0 && *m_simBase->m_knobs->KNOB_LLC_REMAPPING_INTERVAL !=-1)
+        {
+            //check if was dirty
+          //int set_num = (m_cache->m_set_remapped <= 0)? m_num_set:m_cache->m_set_remapped-1;
+          int set_num = m_cache->m_set_remapped;
+          m_cache->m_set_remapped = (m_cache->m_set_remapped + 1)%m_num_set;
+          m_cache->m_last_flush_time=CYCLE;
+          if(CYCLE - m_cache->m_last_flush_time <= *m_simBase->m_knobs->KNOB_LLC_FLUSH_PENALTY)//it is within a certain time window
+          {
+              Addr tag;
+              int set;
+              m_cache->find_tag_and_set(*line_addr,&tag,&set);
+              if(set == set_num)
+              {
+                return(NULL);
+              }
+          }
+          
+          for (int jj = 0; jj < m_assoc; ++jj)
+          {
+            cache_entry_c *line = &(m_cache->m_set[set_num]->m_entry[jj]);
+            
+            if(line->m_dirty == true && line->m_valid)// line is dirty
+            {
+              //Addr temp1 = line->m_base;
+              //dcache_data_s* temp2 = (dcache_data_s*)line->m_data;
+              
+              if(line == NULL)
+              {
+                cout << "[ERROR] Line is NULL here "<<endl;
+              }
+              mem_req_s* wb = m_simBase->m_memory->new_wb_req(line->m_base,m_line_size,m_acc_sim,(dcache_data_s*)line->m_data,m_level);
+              wb->m_rdy_cycle = m_cycle + 1;
+              if (!m_wb_queue->push(wb)) ASSERT(0);
+            }
+            line->m_valid = false;
+          }
+
+        }
+      }
+    }
+  }
+  return return_value;
 }
 
 // search a prefetch request in input queue.
@@ -457,8 +545,11 @@ int dcu_c::access(uop_c* uop) {
   } else {
     int appl_id =
       m_simBase->m_core_pointers[uop->m_core_id]->get_appl_id(uop->m_thread_id);
+    //line =
+    //  (dcache_data_s*)m_cache->access_cache(vaddr, &line_addr, true, appl_id);
+    
     line =
-      (dcache_data_s*)m_cache->access_cache(vaddr, &line_addr, true, appl_id);
+      (dcache_data_s*)access_cache(vaddr, &line_addr, true, appl_id);
     cache_hit = (line) ? true : false;
 
     if (m_level != MEM_LLC) {
@@ -743,7 +834,11 @@ void dcu_c::process_in_queue() {
       cache_hit = false;
     } else if (!m_disable) {
       // for wb request, do not update lru state in case of the hit
-      line = (dcache_data_s*)m_cache->access_cache(
+      //line = (dcache_data_s*)m_cache->access_cache(
+      //  req->m_addr, &line_addr, req->m_type == MRT_WB ? false : true,
+      //  req->m_appl_id);
+      
+      line = (dcache_data_s*)access_cache(
         req->m_addr, &line_addr, req->m_type == MRT_WB ? false : true,
         req->m_appl_id);
       cache_hit = (line) ? true : false;
@@ -1108,7 +1203,10 @@ void dcu_c::process_fill_queue() {
 
         // Access cache to check whether there is the same line in the cache.
         if (!m_disable) {
-          line = (dcache_data_s*)m_cache->access_cache(req->m_addr, &line_addr,
+          //line = (dcache_data_s*)m_cache->access_cache(req->m_addr, &line_addr,
+          //                                             false, req->m_appl_id);
+
+          line = (dcache_data_s*)access_cache(req->m_addr, &line_addr,
                                                        false, req->m_appl_id);
           cache_hit = (line) ? true : false;
         }
@@ -1148,6 +1246,8 @@ void dcu_c::process_fill_queue() {
               // new write-back request
               mem_req_s* wb = m_simBase->m_memory->new_wb_req(
                 victim_line_addr, m_line_size, m_acc_sim, data, m_level);
+              
+              STAT_EVENT(FLUSH_WB_REQ);
 
               wb->m_rdy_cycle = m_cycle + 1;
 
@@ -1418,7 +1518,10 @@ bool dcu_c::done(mem_req_s* req) {
     }
 
     // for the safety check, do not insert duplicate blocks
-    line = (dcache_data_s*)m_cache->access_cache(addr, &line_addr, false,
+    //line = (dcache_data_s*)m_cache->access_cache(addr, &line_addr, false,
+    //                                             req->m_appl_id);
+    
+    line = (dcache_data_s*)access_cache(addr, &line_addr, false,
                                                  req->m_appl_id);
 
     if (!line) {

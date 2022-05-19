@@ -69,6 +69,7 @@ public:
   Addr m_base;  //!< address of first element
   Counter m_last_access_time;  //!< for replacement policy
   Counter m_access_counter;  //!< access counter
+  Counter m_last_flush_time;
   void *m_data;  //!< poiter to arbitrary data
   bool m_pref;  //!< data is brought by a prefetcher
   bool m_dirty;  //!< data is dirty
@@ -308,6 +309,8 @@ public:
   Cache_Type m_cache_type; /**< cache type */
   Counter m_access_counter;  //!< access counter
   int m_set_remapped; // points to the set that has been remapped so far
+  cache_set_c **m_set; /**< cache data structure */
+  Counter m_last_flush_time;
 protected:
   string m_name; /**< cache name */
   int m_data_size; /**< cache data size */
@@ -333,7 +336,7 @@ protected:
   int m_interleave_bits; /**< number of bits taken by interleaving factor */
   Addr m_interleave_mask; /**< interleave factor mask */
 
-  cache_set_c **m_set; /**< cache data structure */
+  
 
   macsim_c *m_simBase; /**< macsim_c base class for simulation globals */
 };
