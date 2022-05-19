@@ -394,14 +394,16 @@ dcache_data_s* dcu_c::access_cache(Addr addr, Addr* line_addr, bool update,
     {
       if( m_simBase->m_knobs->KNOB_LLC_REMAPPING_MODE->getValue() == "bulk" && *m_simBase->m_knobs->KNOB_LLC_REMAPPING_INTERVAL != -1) //bulk remapping mode
       {
-        if(CYCLE - m_cache->m_last_flush_time <= *m_simBase->m_knobs->KNOB_LLC_FLUSH_PENALTY)//it is within a certain time window
+        m_cache->m_access_counter++;
+        if(CYCLE - m_cache->m_last_flush_time <= (*m_simBase->m_knobs->KNOB_LLC_FLUSH_PENALTY)*m_num_set*m_assoc)//it is within a certain time window
         {
             return(NULL);
         }
-        if(m_cache->m_access_counter% *m_simBase->m_knobs->KNOB_LLC_REMAPPING_INTERVAL == 0)
+        if(m_cache->m_access_counter% *m_simBase->m_knobs->KNOB_LLC_REMAPPING_INTERVAL == 0 && *m_simBase->m_knobs->KNOB_LLC_REMAPPING_INTERVAL !=-1)
         {
           //cout << "Remapping Internal Hit"<<endl;
           //getchar();
+          m_cache->m_last_flush_time=CYCLE;
           for (int ii = 0; ii < m_num_set; ++ii) {
             for (int jj = 0; jj < m_assoc; ++jj) {
               //cout<< "Inside inner loop"<<endl;
@@ -411,7 +413,7 @@ dcache_data_s* dcu_c::access_cache(Addr addr, Addr* line_addr, bool update,
                 //cout<<"Line is already invalidated"<<endl;
                 //getchar();
               }
-              if(line->m_dirty == true)
+              if(line->m_dirty == true && line->m_valid)
               {
                 //cout<<"Line is dirty"<<endl;
                 //getchar();
@@ -419,6 +421,7 @@ dcache_data_s* dcu_c::access_cache(Addr addr, Addr* line_addr, bool update,
                 wb->m_rdy_cycle = m_cycle + 1;
                  if (!m_wb_queue->push(wb)) ASSERT(0);
               }
+              line->m_valid = false;
             }
 
           }
@@ -434,7 +437,7 @@ dcache_data_s* dcu_c::access_cache(Addr addr, Addr* line_addr, bool update,
           int set_num = m_cache->m_set_remapped;
           m_cache->m_set_remapped = (m_cache->m_set_remapped + 1)%m_num_set;
           m_cache->m_last_flush_time=CYCLE;
-          if(CYCLE - m_cache->m_last_flush_time <= *m_simBase->m_knobs->KNOB_LLC_FLUSH_PENALTY)//it is within a certain time window
+          if(CYCLE - m_cache->m_last_flush_time <= (*m_simBase->m_knobs->KNOB_LLC_FLUSH_PENALTY)*m_num_set*m_assoc)//it is within a certain time window
           {
               Addr tag;
               int set;

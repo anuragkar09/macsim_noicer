@@ -247,8 +247,8 @@ void cache_c::update_cache_on_access(Addr line_addr, int set, int appl_id) {
         {
           //cout<< "[Log] Invalidate and reset counter "<<endl;
           //m_access_counter =0;
-          invalidate_cache();
-          m_last_flush_time = CYCLE;
+          //invalidate_cache();
+          //m_last_flush_time = CYCLE;
           //getchar();
         }
       }
@@ -499,7 +499,7 @@ void cache_c::invalidate_cache(void) {
       cache_entry_c *line = &(m_set[ii]->m_entry[jj]);
       if(line->m_dirty == true)
       {
-        cout << "Line is dirty in cache"<<endl;
+        //cout << "Line is dirty in cache"<<endl;
         //getchar();
       }
       //line->m_dirty = true; //just to  test if it shows up
